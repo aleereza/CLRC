@@ -5,6 +5,7 @@ import os
 
 import httplib2
 import os
+import numpy as np
 
 from apiclient import discovery
 from oauth2client import client
@@ -57,27 +58,7 @@ def get_credentials():
         print('Storing credentials to ' + credential_path)
     return credentials
 
-def read_googlesheets(rangeName):
-    """Shows basic usage of the Sheets API.
 
-    Creates a Sheets API service object and prints the names and majors of
-    students in a sample spreadsheet:
-    https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit
-    """
-    credentials = get_credentials()
-    http = credentials.authorize(httplib2.Http())
-    discoveryUrl = ('https://sheets.googleapis.com/$discovery/rest?'
-                    'version=v4')
-    service = discovery.build('sheets', 'v4', http=http,
-                              discoveryServiceUrl=discoveryUrl)
-
-    spreadsheetId = '1e7kP27kCs-uPkf509RWpYC6rGZ-G3NKMBEUczXlGVKI'
-    
-    result = service.spreadsheets().values().get(
-        spreadsheetId=spreadsheetId, range=rangeName).execute()
-    values = result.get('values')
-    
-    return values
 #    if not values:
 #        print('No data found.')
 #    else:
@@ -137,8 +118,8 @@ class Result (object):
 # input : soup of search row: rows = s.find_all('li', class_ ='result-row' )
     def __init__ (self, row):
         self.link = row.find_all('a', class_ = 'result-title hdrlnk')[0]['href']
-        temp_time = row.find_all('time', class_ = 'result-date')[0]['datetime']
-        self.time = datetime.strptime(temp_time, "%Y-%m-%d %H:%M")
+        self.strtime = row.find_all('time', class_ = 'result-date')[0]['datetime']
+        self.time = datetime.strptime(self.strtime, "%Y-%m-%d %H:%M")
         self.price = row.find_all('span', class_ = 'result-price')[0].string
         self.id = row['data-pid']
         
@@ -148,13 +129,54 @@ class Result (object):
 
 class Gsheet (object):
     def __init__ (self):
-        rangeName = 'list!Z1:Z3'
-        initials = read_googlesheets(rangeName)
-        print(initials)
-        self.frow = initials[0][0]
-        self.lrow = initials[1][0]
+        credentials = get_credentials()
+        http = credentials.authorize(httplib2.Http())
+        discoveryUrl = ('https://sheets.googleapis.com/$discovery/rest?'
+                    'version=v4')
+        self.service = discovery.build('sheets', 'v4', http=http,
+                              discoveryServiceUrl=discoveryUrl)
+        self.spreadsheetId = '1e7kP27kCs-uPkf509RWpYC6rGZ-G3NKMBEUczXlGVKI'
+        
+        initials_range = 'list!Z1:Z3'
+        self.frow_range = 'list!Z1'
+        self.lrow_range = 'list!Z2'
+        self.ltime_range = 'list!Z3'
+        
+        initials = self.read(initials_range)
+        #print(initials)
+        self.frow = int(initials[0][0])
+        self.lrow = int(initials[1][0])
         self.ltime = datetime.strptime(initials[2][0], "%Y-%m-%d %H:%M")
         
+        
+    def read(self,rangeName):    
+        result = self.service.spreadsheets().values().get(
+                spreadsheetId=self.spreadsheetId, range=rangeName).execute()
+        values = result.get('values')    
+        return values
+    
+    def write(self,rangeName,write_values):
+        value_range_body = {'values': write_values} #write_values should be a list of lists
+        request = self.service.spreadsheets().values().update(
+                spreadsheetId=self.spreadsheetId, range=rangeName, valueInputOption='RAW',
+                body=value_range_body)
+        response = request.execute()
+        #print(response)
+        
+    def range_to_write (self):
+        #returns the range to write in A1 notation based on last row (self.lrow)
+        sheet_name = 'list'
+        return sheet_name + '!A' + str(self.lrow+1)
+    
+    def update(self, df, t):
+        #updates sheet with given dataframe and new last time
+        values_array = df.values.tolist()
+        range_to_write = self.range_to_write()
+        self.write(range_to_write,values_array)
+        self.lrow += len(values_array)
+        self.write(self.lrow_range, [[self.lrow]])
+        self.ltime = datetime.strptime(t, "%Y-%m-%d %H:%M")
+        self.write(self.ltime_range, [[t]])
     
 def find_new(url):
     #check the Result and compate to last date add if there was new rows build a data frame
@@ -164,27 +186,21 @@ def find_new(url):
     rows = s.find_all('li', class_ ='result-row' )
     sheet = Gsheet()
     last_time = sheet.ltime
-    firs_row = sheet.frow
-    last_row = sheet.lrow
-    
-    columns = ['id','link','price','time']    
+    columns = ['id','link','price','strtime']    
     list_df = pd.DataFrame(columns = columns)
     
     df_row_index = 0
     for row in rows:
         sample = Result(row)
-        #temp_time = sample.time
         if sample.time > last_time:
             df_row = [sample.__dict__[x] for x in columns]
             list_df.loc[df_row_index] = df_row
             df_row_index+=1
-            #print(df_row)
-    list_df.sort_values(by = ['time'],inplace = True, ascending = True)
-    
-    print(list_df)
+    if (df_row_index>0):
+        new_last_time = list_df['strtime'][0]
+        list_df.sort_values(by = ['strtime'],inplace = True, ascending = True)        
+        sheet.update(list_df, new_last_time)
         
- 
-    
 if __name__ == '__main__':
 #    try:
 #        CITY = sys.argv[1]
@@ -193,13 +209,8 @@ if __name__ == '__main__':
 #        sys.exit(1)
     search = Search()
     url = search.url
-    print(url)
-    
-    
-    
+    #print(url)
     find_new (url)
-    
-    #read_googlesheets()
     
 
     
