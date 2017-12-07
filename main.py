@@ -188,8 +188,8 @@ def report():
     server.starttls()
     server.login(smtp_data['email'], smtp_data['password'])
     message = "New results found!"
-    #toaddr = ["alireza.barkhordari@gmail.com", "sorour.mohajerani@gmail.com"]
-    toaddr = ["alireza.barkhordari@gmail.com"]
+    toaddr = ["alireza.barkhordari@gmail.com", "sorour.mohajerani@gmail.com"]
+    #toaddr = ["alireza.barkhordari@gmail.com"]
     server.sendmail(smtp_data['email'], toaddr , message)
     server.quit()
 
