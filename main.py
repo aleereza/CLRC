@@ -230,4 +230,4 @@ if __name__ == '__main__':
     url = search.url
     #print(url)
     find_new (url)
-    print('test log')
+    print(datetime.now())
