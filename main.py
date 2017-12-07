@@ -1,3 +1,4 @@
+#!/home/alireza_barkhordari/environments/clrc/bin/python
 import requests
 import pandas as pd
 from bs4 import BeautifulSoup
@@ -229,7 +230,7 @@ if __name__ == '__main__':
     url = search.url
     #print(url)
     find_new (url)
-    
+    print('test log')
 
     
     
