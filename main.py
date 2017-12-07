@@ -13,6 +13,8 @@ from oauth2client import tools
 from oauth2client.file import Storage
 
 from datetime import datetime
+import smtplib
+import json
 
 # to use google sheets
 try:
@@ -26,8 +28,8 @@ except ImportError:
 SCOPES = 'https://www.googleapis.com/auth/spreadsheets'
 
 base_dir = os.getcwd()
-client_sicret_dir = os.path.join(base_dir, 'client_sicret_dir')
-CLIENT_SECRET_FILE = os.path.join(client_sicret_dir, 'client_secret.json')
+client_secret_dir = os.path.join(base_dir, 'client_secret_dir')
+CLIENT_SECRET_FILE = os.path.join(client_secret_dir, 'client_secret.json')
 APPLICATION_NAME = 'CLRC'
 
 def get_credentials():
@@ -178,6 +180,18 @@ class Gsheet (object):
         self.ltime = datetime.strptime(t, "%Y-%m-%d %H:%M")
         self.write(self.ltime_range, [[t]])
     
+def report():
+    SMTP_FILE = os.path.join(client_secret_dir, 'smtp_settings.json')
+    with open(SMTP_FILE) as data_file:    
+        smtp_data = json.load(data_file)
+    server = smtplib.SMTP(smtp_data['host'], smtp_data['port'])
+    server.starttls()
+    server.login(smtp_data['email'], smtp_data['password'])
+    message = "New results found!"
+    toaddr = ["alireza.barkhordari@gmail.com", "sorour.mohajerani@gmail.com"]
+    server.sendmail(smtp_data['email'], toaddr , message)
+    server.quit()
+
 def find_new(url):
     #check the Result and compate to last date add if there was new rows build a data frame
     r = requests.get(url)
@@ -197,10 +211,14 @@ def find_new(url):
             list_df.loc[df_row_index] = df_row
             df_row_index+=1
     if (df_row_index>0):
+        
         new_last_time = list_df['strtime'][0]
         list_df.sort_values(by = ['strtime'],inplace = True, ascending = True)        
         sheet.update(list_df, new_last_time)
-        
+        print ('New results found!')
+        report()
+
+
 if __name__ == '__main__':
 #    try:
 #        CITY = sys.argv[1]

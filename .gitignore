@@ -101,4 +101,4 @@ ENV/
 .mypy_cache/
 
 #credential
-client_sicret_dir/
+client_secret_dir/
