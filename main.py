@@ -3,16 +3,11 @@ import requests
 import pandas as pd
 from bs4 import BeautifulSoup
 import os
-
 import httplib2
-import os
-import numpy as np
-
 from apiclient import discovery
 from oauth2client import client
 from oauth2client import tools
 from oauth2client.file import Storage
-
 from datetime import datetime
 import smtplib
 import json
@@ -160,10 +155,10 @@ class Gsheet (object):
     
     def write(self,rangeName,write_values):
         value_range_body = {'values': write_values} #write_values should be a list of lists
-        request = self.service.spreadsheets().values().update(
+        self.service.spreadsheets().values().update(
                 spreadsheetId=self.spreadsheetId, range=rangeName, valueInputOption='RAW',
                 body=value_range_body)
-        response = request.execute()
+        #response = request.execute()
         #print(response)
         
     def range_to_write (self):
@@ -231,9 +226,3 @@ if __name__ == '__main__':
     #print(url)
     find_new (url)
     print('test log')
-
-    
-    
-    
-    
-        
