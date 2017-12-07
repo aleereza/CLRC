@@ -135,11 +135,12 @@ class Gsheet (object):
                               discoveryServiceUrl=discoveryUrl)
         self.spreadsheetId = '1e7kP27kCs-uPkf509RWpYC6rGZ-G3NKMBEUczXlGVKI'
         
-        initials_range = 'list!Z1:Z3'
-        self.frow_range = 'list!Z1'
-        self.lrow_range = 'list!Z2'
-        self.ltime_range = 'list!Z3'
-        
+        self.sheet_name = 'list'
+        initials_range = self.sheet_name + '!' + 'Z1:Z3'
+        self.frow_range = self.sheet_name + '!' + 'Z1'
+        self.lrow_range = self.sheet_name + '!' + 'Z2'
+        self.ltime_range = self.sheet_name + '!' + 'Z3'
+
         initials = self.read(initials_range)
         #print(initials)
         self.frow = int(initials[0][0])
@@ -155,16 +156,14 @@ class Gsheet (object):
     
     def write(self,rangeName,write_values):
         value_range_body = {'values': write_values} #write_values should be a list of lists
-        self.service.spreadsheets().values().update(
+        request = self.service.spreadsheets().values().update(
                 spreadsheetId=self.spreadsheetId, range=rangeName, valueInputOption='RAW',
                 body=value_range_body)
-        #response = request.execute()
-        #print(response)
+        request.execute()
         
     def range_to_write (self):
-        #returns the range to write in A1 notation based on last row (self.lrow)
-        sheet_name = 'list'
-        return sheet_name + '!A' + str(self.lrow+1)
+        #returns the range to write in A1 notation based on last row (self.lrow) 
+        return self.sheet_name + '!A' + str(self.lrow+1)
     
     def update(self, df, t):
         #updates sheet with given dataframe and new last time
@@ -175,6 +174,11 @@ class Gsheet (object):
         self.write(self.lrow_range, [[self.lrow]])
         self.ltime = datetime.strptime(t, "%Y-%m-%d %H:%M")
         self.write(self.ltime_range, [[t]])
+        
+    def get_ids(self):
+        #returns a list of all ids in sheet
+        ids_range = self.sheet_name + '!A2:A' + str(self.lrow)
+        return self.read(ids_range)
     
 def report():
     SMTP_FILE = os.path.join(client_secret_dir, 'smtp_settings.json')
@@ -184,7 +188,8 @@ def report():
     server.starttls()
     server.login(smtp_data['email'], smtp_data['password'])
     message = "New results found!"
-    toaddr = ["alireza.barkhordari@gmail.com", "sorour.mohajerani@gmail.com"]
+    #toaddr = ["alireza.barkhordari@gmail.com", "sorour.mohajerani@gmail.com"]
+    toaddr = ["alireza.barkhordari@gmail.com"]
     server.sendmail(smtp_data['email'], toaddr , message)
     server.quit()
 
@@ -202,7 +207,7 @@ def find_new(url):
     df_row_index = 0
     for row in rows:
         sample = Result(row)
-        if sample.time > last_time:
+        if (sample.time > last_time and not([sample.id] in sheet.get_ids())):
             df_row = [sample.__dict__[x] for x in columns]
             list_df.loc[df_row_index] = df_row
             df_row_index+=1
